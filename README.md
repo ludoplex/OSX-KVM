@@ -165,6 +165,33 @@ processors work just fine (even for macOS Sonoma).
 * Now you are ready to install macOS 🚀
 
 
+### One-click setup for `Codex.dmg`
+
+Use the one-click helper to automate setup from OpenAI's hosted DMG
+(`https://persistent.oaistatic.com/codex-app-prod/Codex.dmg`). If local
+`codex.dmg` is missing, it is downloaded automatically.
+
+```
+./one-click-codex-setup.sh
+```
+
+Optional flags:
+
+* `--force-download`: always re-download the DMG from the configured URL.
+* `--dmg /path/to/Codex.dmg`: use a specific local DMG file path.
+* `--dmg-url <url>`: override the default DMG URL.
+* `--install-deps` (Debian/Ubuntu only): install required Linux packages.
+* `--disk-size 300G`: create a larger `mac_hdd_ng.img` disk.
+* `--no-start`: prepare everything but don't launch the VM.
+* `--skip-hw-tune`: disable automatic host CPU/RAM detection and tuning.
+
+By default the script auto-detects host CPU/RAM and exports tuned
+`ALLOCATED_RAM`, `CPU_THREADS`, `CPU_CORES`, and `CPU_SOCKETS` for
+`OpenCore-Boot.sh`. You can still override these manually via environment
+variables before running the script.
+
+Run `./one-click-codex-setup.sh --help` for all options.
+
 ### Installation
 
 - CLI method (primary). Just run the `OpenCore-Boot.sh` script to start the
