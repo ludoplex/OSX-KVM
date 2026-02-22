@@ -15,7 +15,7 @@ AUTO_START=1
 FORCE_CODEX_DOWNLOAD=0
 SKIP_HW_TUNE=0
 SKIP_CODEX_MEDIA=0
-GENERATE_SERIALS=1
+GENERATE_SERIALS=0
 
 need_arg() {
     if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == --* ]]; then
@@ -34,7 +34,7 @@ One-click OSX-KVM setup + Codex app install media preparation:
   3) Downloads Codex.dmg and builds CodexTools.iso for in-guest installation
   4) Creates mac_hdd_ng.img if missing
   5) Detects host CPU/RAM and tunes VM resources
-  6) Generates realistic serials (Sick.Codes generator) for the VM
+  6) Optionally generates realistic serials (Sick.Codes generator) for the VM
   7) Boots the VM with CodexTools.iso attached (unless --no-start)
 
 Options:
@@ -47,6 +47,7 @@ Options:
   --skip-codex-media       don't prepare/attach CodexTools.iso
   --serial-model <model>   SMBIOS model for serials (default: $SERIAL_MODEL)
   --serials-file <path>    write generated serial env file
+  --generate-serials       enable Sick.Codes serial generation
   --skip-serials           disable serial generation
   --install-deps           install dependencies via apt-get
   --skip-hw-tune           disable CPU/RAM auto tuning
@@ -204,6 +205,8 @@ while [[ $# -gt 0 ]]; do
             need_arg "$@"; SERIAL_MODEL="$2"; shift 2 ;;
         --serials-file)
             need_arg "$@"; SERIALS_FILE="$2"; shift 2 ;;
+        --generate-serials)
+            GENERATE_SERIALS=1; shift ;;
         --skip-serials)
             GENERATE_SERIALS=0; shift ;;
         --install-deps)
@@ -269,7 +272,7 @@ fi
 if [[ $GENERATE_SERIALS -eq 1 ]]; then
     generate_serials_sickcodes
 else
-    echo "[*] Serial generation skipped (--skip-serials)"
+    echo "[*] Serial generation skipped (default). Use --generate-serials to enable."
 fi
 
 cat <<EOFMSG
