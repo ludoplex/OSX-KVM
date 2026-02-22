@@ -14,3 +14,7 @@ mac_hdd_ng.img:
 
 clean:
 	rm -rf BaseSystem{.dmg,.img,.chunklist}
+
+
+codex-setup:
+	./one-click-codex-setup.sh
