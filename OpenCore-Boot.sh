@@ -66,4 +66,11 @@ args=(
   # -spice port=5900,addr=127.0.0.1,disable-ticketing=on
 )
 
+if [[ -n "${EXTRA_CDROM_IMAGE:-}" && -f "${EXTRA_CDROM_IMAGE}" ]]; then
+  args+=(
+    -drive id=ExtraTools,if=none,file="$EXTRA_CDROM_IMAGE",format=raw,media=cdrom
+    -device ide-cd,bus=sata.5,drive=ExtraTools
+  )
+fi
+
 qemu-system-x86_64 "${args[@]}"
