@@ -18,6 +18,9 @@ FORCE_CODEX_DOWNLOAD=0
 SKIP_HW_TUNE=0
 SKIP_CODEX_MEDIA=0
 GENERATE_SERIALS=0
+SKIP_SETUP_WIZARD=0
+NON_INTERACTIVE=0
+AI_ENV_FILE="${AI_ENV_FILE:-$REPO_ROOT/ai-model-providers.env}"
 
 need_arg() {
     if [[ $# -lt 2 || -z "${2:-}" || "${2:-}" == --* ]]; then
@@ -52,6 +55,8 @@ Options:
   --generate-serials       enable Sick.Codes serial generation
   --skip-serials           disable serial generation
   --install-deps           install dependencies via apt-get
+  --skip-setup-wizard      skip interactive token/provider setup wizard
+  --non-interactive        disable prompts (for CI/automation)
   --skip-hw-tune           disable CPU/RAM auto tuning
   --no-start               prepare only, do not launch VM
   -h, --help               show this help
@@ -95,6 +100,58 @@ prepare_macos_base() {
     dmg2img -i "$REPO_ROOT/BaseSystem.dmg" "$REPO_ROOT/BaseSystem.img"
 }
 
+run_setup_wizard() {
+    if [[ $SKIP_SETUP_WIZARD -eq 1 || $NON_INTERACTIVE -eq 1 ]]; then
+        echo "[*] Setup wizard skipped"
+        return 0
+    fi
+
+    if [[ ! -t 0 ]]; then
+        echo "[*] No TTY available; skipping setup wizard"
+        return 0
+    fi
+
+    local openai_token="" claude_token="" want
+    echo "[*] AI provider setup wizard"
+    read -r -p "Configure OpenAI/Claude tokens now? [Y/n]: " want
+    want=${want:-Y}
+    if [[ "$want" =~ ^[Nn]$ ]]; then
+        echo "[*] Token setup skipped by user"
+        return 0
+    fi
+
+    read -r -s -p "Enter OpenAI API token for GPT-5.3 Codex (optional): " openai_token
+    echo
+    read -r -s -p "Enter Anthropic token for Opus 4.6 (optional): " claude_token
+    echo
+
+    local default_provider="none" default_model=""
+    if [[ -n "$openai_token" && -n "$claude_token" ]]; then
+        default_provider="codex"
+        default_model="gpt-5.3-codex"
+    elif [[ -n "$openai_token" ]]; then
+        default_provider="codex"
+        default_model="gpt-5.3-codex"
+    elif [[ -n "$claude_token" ]]; then
+        default_provider="claude"
+        default_model="opus-4.6"
+    fi
+
+    mkdir -p "$(dirname "$AI_ENV_FILE")"
+    {
+        echo "OPENAI_API_KEY=${openai_token}"
+        echo "ANTHROPIC_API_KEY=${claude_token}"
+        echo "AI_DEFAULT_PROVIDER=${default_provider}"
+        echo "AI_DEFAULT_MODEL=${default_model}"
+        echo "AI_MODEL_CODEX=gpt-5.3-codex"
+        echo "AI_MODEL_CLAUDE=opus-4.6"
+    } > "$AI_ENV_FILE"
+    chmod 600 "$AI_ENV_FILE"
+
+    echo "[*] Provider config written to: $AI_ENV_FILE"
+    echo "[*] Default provider: $default_provider"
+}
+
 prepare_codex_media() {
     if [[ $FORCE_CODEX_DOWNLOAD -eq 1 || ! -f "$CODEX_DMG_PATH" ]]; then
         echo "[*] Downloading Codex.dmg"
@@ -110,6 +167,10 @@ prepare_codex_media() {
     workdir="$(mktemp -d)"
     cp "$CODEX_DMG_PATH" "$workdir/Codex.dmg"
     cp "$REPO_ROOT/scripts/install_codex_in_macos.sh" "$workdir/install_codex_in_macos.sh"
+    cp "$REPO_ROOT/scripts/setup_ai_providers_in_macos.sh" "$workdir/setup_ai_providers_in_macos.sh"
+    if [[ -f "$AI_ENV_FILE" ]]; then
+        cp "$AI_ENV_FILE" "$workdir/ai-model-providers.env"
+    fi
 
     echo "[*] Building CodexTools.iso for in-guest install"
     genisoimage -quiet -J -R -V CodexTools -o "$CODEX_ISO_PATH" "$workdir/Codex.dmg" "$workdir/install_codex_in_macos.sh"
@@ -229,6 +290,10 @@ while [[ $# -gt 0 ]]; do
             GENERATE_SERIALS=0; shift ;;
         --install-deps)
             INSTALL_DEPS=1; shift ;;
+        --skip-setup-wizard)
+            SKIP_SETUP_WIZARD=1; shift ;;
+        --non-interactive)
+            NON_INTERACTIVE=1; shift ;;
         --skip-hw-tune)
             SKIP_HW_TUNE=1; shift ;;
         --no-start)
@@ -274,6 +339,8 @@ else
     echo "[*] Reusing existing mac_hdd_ng.img"
 fi
 
+run_setup_wizard
+
 if [[ $SKIP_CODEX_MEDIA -eq 0 ]]; then
     prepare_codex_media
     export EXTRA_CDROM_IMAGE="$CODEX_ISO_PATH"
@@ -300,6 +367,7 @@ cat <<EOFMSG
 Inside macOS installer / desktop:
   1) Open the "CodexTools" media
   2) Run: sh /Volumes/CodexTools/install_codex_in_macos.sh
+  3) (Optional) Run: sh /Volumes/CodexTools/setup_ai_providers_in_macos.sh
 
 EOFMSG
 
