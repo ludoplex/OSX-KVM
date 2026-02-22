@@ -10,6 +10,8 @@ CODEX_DMG_URL="${CODEX_DMG_URL:-https://persistent.oaistatic.com/codex-app-prod/
 CODEX_ISO_PATH="${CODEX_ISO_PATH:-$REPO_ROOT/CodexTools.iso}"
 SERIAL_MODEL="${SERIAL_MODEL:-iMacPro1,1}"
 SERIALS_FILE="${SERIALS_FILE:-$REPO_ROOT/osx-serials.env}"
+SICKCODES_SERIAL_COMMIT="${SICKCODES_SERIAL_COMMIT:-461ae7f960ba0db0b9f4cbe9bebc7a4513cb8878}"
+SICKCODES_SERIAL_SHA256="${SICKCODES_SERIAL_SHA256:-cf40741417816f0c8a72ef24b028713e2a81001b268ac652ed6894caa10d3aa8}"
 INSTALL_DEPS=0
 AUTO_START=1
 FORCE_CODEX_DOWNLOAD=0
@@ -114,13 +116,29 @@ prepare_codex_media() {
     rm -rf "$workdir"
 }
 
+verify_sha256() {
+    local file_path="$1"
+    local expected_sha="$2"
+    local actual_sha
+
+    require_cmd sha256sum
+    actual_sha="$(sha256sum "$file_path" | awk '{print $1}')"
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+        echo "[!] Checksum verification failed for $file_path" >&2
+        echo "    expected: $expected_sha" >&2
+        echo "    actual  : $actual_sha" >&2
+        exit 1
+    fi
+}
+
 generate_serials_sickcodes() {
     local workdir script_path env_file
     workdir="$(mktemp -d)"
     script_path="$workdir/generate-unique-machine-values.sh"
 
-    echo "[*] Generating serials using Sick.Codes osx-serial-generator"
-    download_file "https://raw.githubusercontent.com/sickcodes/Docker-OSX/master/custom/generate-unique-machine-values.sh" "$script_path"
+    echo "[*] Generating serials using pinned Sick.Codes osx-serial-generator (${SICKCODES_SERIAL_COMMIT})"
+    download_file "https://raw.githubusercontent.com/sickcodes/Docker-OSX/${SICKCODES_SERIAL_COMMIT}/custom/generate-unique-machine-values.sh" "$script_path"
+    verify_sha256 "$script_path" "$SICKCODES_SERIAL_SHA256"
     chmod +x "$script_path"
 
     if ! (cd "$workdir" && "$script_path" --count 1 --model "$SERIAL_MODEL" --envs --output-dir "$workdir" >/dev/null 2>&1); then
