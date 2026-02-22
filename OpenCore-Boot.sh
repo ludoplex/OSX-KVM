@@ -23,10 +23,10 @@ MY_OPTIONS="+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check"
 # This script works for Big Sur, Catalina, Mojave, and High Sierra. Tested with
 # macOS 10.15.6, macOS 10.14.6, and macOS 10.13.6.
 
-ALLOCATED_RAM="4096" # MiB
-CPU_SOCKETS="1"
-CPU_CORES="2"
-CPU_THREADS="4"
+ALLOCATED_RAM="${ALLOCATED_RAM:-4096}" # MiB
+CPU_SOCKETS="${CPU_SOCKETS:-1}"
+CPU_CORES="${CPU_CORES:-2}"
+CPU_THREADS="${CPU_THREADS:-4}"
 
 REPO_PATH="."
 OVMF_DIR="."
@@ -49,7 +49,6 @@ args=(
   -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
   -drive if=pflash,format=raw,readonly=on,file="$REPO_PATH/$OVMF_DIR/OVMF_CODE.fd"
   -drive if=pflash,format=raw,file="$REPO_PATH/$OVMF_DIR/OVMF_VARS-1920x1080.fd"
-  -smbios type=2
   -device ich9-intel-hda -device hda-duplex
   -device ich9-ahci,id=sata
   -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="$REPO_PATH/OpenCore/OpenCore.qcow2"
@@ -65,5 +64,26 @@ args=(
   -device vmware-svga
   # -spice port=5900,addr=127.0.0.1,disable-ticketing=on
 )
+
+if [[ -n "${OSX_SERIAL:-}" ]]; then
+  args+=( -smbios "type=1,serial=${OSX_SERIAL}" )
+fi
+
+if [[ -n "${OSX_BOARD_SERIAL:-}" ]]; then
+  args+=( -smbios "type=2,serial=${OSX_BOARD_SERIAL}" )
+else
+  args+=( -smbios type=2 )
+fi
+
+if [[ -n "${OSX_UUID:-}" ]]; then
+  args+=( -uuid "${OSX_UUID}" )
+fi
+
+if [[ -n "${EXTRA_CDROM_IMAGE:-}" && -f "${EXTRA_CDROM_IMAGE}" ]]; then
+  args+=(
+    -drive id=ExtraTools,if=none,file="$EXTRA_CDROM_IMAGE",format=raw,media=cdrom
+    -device ide-cd,bus=sata.5,drive=ExtraTools
+  )
+fi
 
 qemu-system-x86_64 "${args[@]}"
