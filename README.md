@@ -165,6 +165,177 @@ processors work just fine (even for macOS Sonoma).
 * Now you are ready to install macOS 🚀
 
 
+### One-click setup for Codex **in** OSX-KVM
+
+Use the helper below for one-click VM preparation and Codex app install media
+creation. This flow installs macOS normally, then installs Codex *inside* the
+macOS VM (it does **not** use `Codex.dmg` as the macOS base installer).
+
+```
+./one-click-codex-setup.sh
+```
+
+What this does:
+
+* Fetches macOS BaseSystem (via `fetch-macOS-v2.py`) and builds `BaseSystem.img`.
+* Downloads `Codex.dmg` from `https://persistent.oaistatic.com/codex-app-prod/Codex.dmg`.
+* Builds `CodexTools.iso` containing `Codex.dmg` + install helper script.
+* Auto-attaches `CodexTools.iso` to the VM when booting.
+
+After macOS boots, install Codex inside the VM:
+
+```
+sh /Volumes/CodexTools/install_codex_in_macos.sh
+```
+
+Optional flags:
+
+* `--macos sonoma`: choose macOS version shortname.
+* `--disk-size 300G`: create a larger `mac_hdd_ng.img` disk.
+* `--codex-dmg /path/to/Codex.dmg`: use a local Codex DMG.
+* `--codex-dmg-url <url>`: override Codex DMG URL.
+* `--force-codex-download`: refresh Codex DMG.
+* `--skip-codex-media`: skip Codex ISO generation/attachment.
+* `--skip-hw-tune`: disable host CPU/RAM auto tuning.
+* `--no-start`: prepare everything but don't launch the VM.
+
+Run `./one-click-codex-setup.sh --help` for all options.
+
+### Installation Preparation
+
+* Install QEMU and other packages.
+
+  ```
+  sudo apt-get install qemu-system uml-utilities virt-manager git \
+      wget libguestfs-tools p7zip-full make dmg2img tesseract-ocr \
+      tesseract-ocr-eng genisoimage vim net-tools screen -y
+  ```
+
+  This step may need to be adapted for your Linux distribution.
+
+* Clone this repository on your QEMU system. Files from this repository are
+  used in the following steps.
+
+  ```
+  cd ~
+
+  git clone --depth 1 --recursive https://github.com/kholia/OSX-KVM.git
+
+  cd OSX-KVM
+  ```
+
+  Repository updates can be pulled via the following command:
+
+  ```
+  git pull --rebase
+  ```
+
+  This repository uses rebase based workflows heavily.
+
+* KVM may need the following tweak on the host machine to work.
+
+  ```
+  sudo modprobe kvm; echo 1 | sudo tee /sys/module/kvm/parameters/ignore_msrs
+  ```
+
+  To make this change permanent, you may use the following command.
+  Use `lscpu` if you are not sure.
+
+  ```
+  sudo cp kvm.conf /etc/modprobe.d/kvm.conf  # for intel boxes only
+
+  sudo cp kvm_amd.conf /etc/modprobe.d/kvm.conf  # for amd boxes only
+  ```
+
+* Add user to the `kvm` and `libvirt` groups (might be needed).
+
+  ```
+  sudo usermod -aG kvm $(whoami)
+  sudo usermod -aG libvirt $(whoami)
+  sudo usermod -aG input $(whoami)
+  ```
+
+  Note: Re-login after executing this command.
+
+* Fetch macOS installer.
+
+  ```
+  ./fetch-macOS-v2.py
+  ```
+
+  You can choose your desired macOS version here. After executing this step,
+  you should have the `BaseSystem.dmg` file in the current folder.
+
+  ATTENTION: Let `>= Big Sur` setup sit at the `Country Selection` screen, and
+  other similar places for a while if things are being slow. The initial macOS
+  setup wizard will eventually succeed.
+
+  Sample run:
+
+  ```
+  $ ./fetch-macOS-v2.py
+  1. High Sierra (10.13)
+  2. Mojave (10.14)
+  3. Catalina (10.15)
+  4. Big Sur (11.7)
+  5. Monterey (12.6)
+  6. Ventura (13)
+  7. Sonoma (14) - RECOMMENDED
+  8. Sequoia (15)
+  9. Tahoe (26)
+
+  Choose a product to download (1-9): 7
+  ```
+
+  Note: Modern NVIDIA GPUs are supported on HighSierra but not on later
+  versions of macOS.
+
+* Convert the downloaded `BaseSystem.dmg` file into the `BaseSystem.img` file.
+
+  ```
+  dmg2img -i BaseSystem.dmg BaseSystem.img
+  ```
+
+* Create a virtual HDD image where macOS will be installed. If you change the
+  name of the disk image from `mac_hdd_ng.img` to something else, the boot scripts
+  will need to be updated to point to the new image name.
+
+  ```
+  qemu-img create -f qcow2 mac_hdd_ng.img 256G
+  ```
+
+  NOTE: Create this HDD image file on a fast SSD/NVMe disk for best results.
+
+* Now you are ready to install macOS 🚀
+
+
+### One-click setup for `Codex.dmg`
+
+Use the one-click helper to automate setup from OpenAI's hosted DMG
+(`https://persistent.oaistatic.com/codex-app-prod/Codex.dmg`). If local
+`codex.dmg` is missing, it is downloaded automatically.
+
+```
+./one-click-codex-setup.sh
+```
+
+Optional flags:
+
+* `--force-download`: always re-download the DMG from the configured URL.
+* `--dmg /path/to/Codex.dmg`: use a specific local DMG file path.
+* `--dmg-url <url>`: override the default DMG URL.
+* `--install-deps` (Debian/Ubuntu only): install required Linux packages.
+* `--disk-size 300G`: create a larger `mac_hdd_ng.img` disk.
+* `--no-start`: prepare everything but don't launch the VM.
+* `--skip-hw-tune`: disable automatic host CPU/RAM detection and tuning.
+
+By default the script auto-detects host CPU/RAM and exports tuned
+`ALLOCATED_RAM`, `CPU_THREADS`, `CPU_CORES`, and `CPU_SOCKETS` for
+`OpenCore-Boot.sh`. You can still override these manually via environment
+variables before running the script.
+
+Run `./one-click-codex-setup.sh --help` for all options.
+
 ### Installation
 
 - CLI method (primary). Just run the `OpenCore-Boot.sh` script to start the
