@@ -165,6 +165,55 @@ processors work just fine (even for macOS Sonoma).
 * Now you are ready to install macOS 🚀
 
 
+### One-click setup for Codex **in** OSX-KVM
+
+Use the helper below for one-click VM preparation and Codex app install media
+creation. This flow installs macOS normally, then installs Codex *inside* the
+macOS VM (it does **not** use `Codex.dmg` as the macOS base installer).
+
+```
+./one-click-codex-setup.sh
+```
+
+What this does:
+
+* Fetches macOS BaseSystem (via `fetch-macOS-v2.py`) and builds `BaseSystem.img`.
+* Works with any supported macOS shortname (for example `sonoma`, `sequoia`, `tahoe`) via `--macos`.
+* Applies hardware-aware VM tuning (`ALLOCATED_RAM`, `CPU_THREADS`, `CPU_CORES`).
+* Downloads `Codex.dmg` from `https://persistent.oaistatic.com/codex-app-prod/Codex.dmg`.
+* Builds `CodexTools.iso` containing `Codex.dmg`, installer helper, and provider setup helpers.
+* Optionally generates realistic serials using a **pinned** Sick.Codes generator commit with SHA-256 verification.
+* Runs a local setup wizard to capture OpenAI/Anthropic tokens, defaulting to Codex when both are present.
+* Auto-attaches `CodexTools.iso` to the VM when booting.
+
+After macOS boots, install Codex inside the VM:
+
+```
+sh /Volumes/CodexTools/install_codex_in_macos.sh
+sh /Volumes/CodexTools/setup_ai_providers_in_macos.sh
+```
+
+Optional flags:
+
+* `--macos sonoma`: choose macOS version shortname.
+* `--disk-size 300G`: create a larger `mac_hdd_ng.img` disk.
+* `--codex-dmg /path/to/Codex.dmg`: use a local Codex DMG.
+* `--codex-dmg-url <url>`: override Codex DMG URL.
+* `--force-codex-download`: refresh Codex DMG.
+* `--skip-codex-media`: skip Codex ISO generation/attachment.
+* `--skip-hw-tune`: disable host CPU/RAM auto tuning.
+* `--serial-model iMacPro1,1`: set serial model when generating SMBIOS values.
+* `--serials-file ./osx-serials.env`: choose output file for generated serials.
+* `--generate-serials`: enable Sick.Codes serial generation workflow (off by default).
+* `--skip-serials`: explicitly skip serial generation.
+* `--skip-setup-wizard`: skip the local token setup wizard.
+* `--non-interactive`: disable prompts for automation / CI.
+* `--no-start`: prepare everything but don't launch the VM.
+
+Security note: serial generation fetches `generate-unique-machine-values.sh` from a pinned commit (`461ae7f960ba0db0b9f4cbe9bebc7a4513cb8878`) and verifies SHA-256 (`cf40741417816f0c8a72ef24b028713e2a81001b268ac652ed6894caa10d3aa8`) before execution.
+
+Run `./one-click-codex-setup.sh --help` for all options.
+
 ### Installation
 
 - CLI method (primary). Just run the `OpenCore-Boot.sh` script to start the
